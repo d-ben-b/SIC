@@ -10,6 +10,8 @@
 #define MAX_OBJECT_CODE_LEN 64 // Maximum length of object code
 #define MAX_SYMBOLS 1024       // Maximum number of symbols in the symbol table
 
+static int error_count = 0;
+
 // Data structure to store one line (similar to the Python 'Line' class)
 typedef struct {
     char address[8];
@@ -292,6 +294,7 @@ static void pass1(Assembler *as, char **raw_lines, int raw_count) {
             if (!add_symbol(as, current_line.label, address_str)) {
                 fprintf(stderr, "Error: Duplicate symbol '%s' at line %d\n",
                         current_line.label, i+1);
+                        error_count+=1;
             }
         }
         
@@ -355,6 +358,7 @@ static void pass1(Assembler *as, char **raw_lines, int raw_count) {
                                 i+1);
                         // default
                         add_symbol(as, current_line.label, "0000");
+                        error_count+=1;
                     }
                 }
             }
@@ -456,6 +460,7 @@ static void pass2(Assembler *as) {
         if (!opcode) {
             fprintf(stderr, "Error: Undefined mnemonic '%s' at line %d\n", 
                     line->mnemonic, i+1);
+                    error_count+=1;
             strcpy(line->object_code, "000000");
             continue;
         }
@@ -477,6 +482,7 @@ static void pass2(Assembler *as) {
                     sprintf(obj, "%s%s%s", opcode, reg_code1, reg_code2);
                 } else {
                     fprintf(stderr, "Error: Invalid register(s) at line %d\n", i+1);
+                    error_count+=1;
                     sprintf(obj, "0000");
                 }
             } else if (r1) {
@@ -486,10 +492,12 @@ static void pass2(Assembler *as) {
                     sprintf(obj, "%s%s0", opcode, reg_code1);
                 } else {
                     fprintf(stderr, "Error: Invalid register '%s' at line %d\n", r1, i+1);
+                    error_count+=1;
                     sprintf(obj, "0000");
                 }
             } else {
                 fprintf(stderr, "Error: Invalid operands for format2 at line %d\n", i+1);
+                error_count+=1;
                 sprintf(obj, "0000");
             }
             strcpy(line->object_code, obj);
@@ -523,6 +531,7 @@ static void pass2(Assembler *as) {
                 int imm_val = atoi(symbol);
                 if (imm_val > 0xFFF) {
                     fprintf(stderr, "Error: Immediate value out of range at line %d\n", i+1);
+                    error_count+=1;
                     imm_val = 0;
                 }
                 sprintf(address, "%03X", imm_val);
@@ -534,6 +543,7 @@ static void pass2(Assembler *as) {
                     sprintf(address, "%03X", tmp_val);
                 } else {
                     fprintf(stderr, "\033[1;31mError: Undefined symbol '%s' at line %d\033[0m\n", symbol, i+1);
+                    error_count+=1;
                     strcpy(address, "000");
                 }
             }
@@ -548,6 +558,7 @@ static void pass2(Assembler *as) {
                 sprintf(address, "%03X", tmp_val);
             } else {
                 fprintf(stderr, "Error: Undefined symbol '%s' at line %d\n", symbol, i+1);
+                error_count+=1;
                 strcpy(address, "000");
             }
         }
@@ -568,6 +579,7 @@ static void pass2(Assembler *as) {
                 sprintf(address, "%03X", tmp_val);
             } else {
                 fprintf(stderr, "Error: Undefined symbol '%s' at line %d\n", operand, i+1);
+                error_count+=1;
                 strcpy(address, "000");
             }
         }
@@ -586,6 +598,7 @@ static void generate_object_file(Assembler *as, const char *obj_filename) {
     FILE *fp = fopen(obj_filename, "w");
     if (!fp) {
         fprintf(stderr, "Error: Cannot open %s for writing.\n", obj_filename);
+        error_count+=1;
         return;
     }
     
@@ -648,6 +661,7 @@ static void generate_list_file(Assembler *as, const char *lst_filename) {
     FILE *fp = fopen(lst_filename, "w");
     if (!fp) {
         fprintf(stderr, "Error: Cannot open %s for writing.\n", lst_filename);
+        error_count+=1;
         return;
     }
     fprintf(fp, "Address\tLabel\tMnemonic\tOperand\tObject Code\n");
@@ -670,6 +684,7 @@ static void assemble(Assembler *as, const char *input_file, const char *obj_file
     FILE *fp = fopen(input_file, "r");
     if (!fp) {
         fprintf(stderr, "Error: Cannot open %s for reading.\n", input_file);
+        error_count+=1;
         exit(1);
     }
     char *raw_lines[MAX_LINES];
@@ -710,12 +725,20 @@ int main(int argc, char *argv[]) {
         printf("Usage: %s <input_file> <output_obj> <output_lst>\n", argv[0]);
         return 1;
     }
-    // Initialize assembler
+    // Initializ*e assembler
     Assembler assembler;
     assembler_init(&assembler);
 
     // Assemble
     assemble(&assembler, argv[1], argv[2], argv[3]);
-    printf("Assembly completed successfully.\n");
+    if (error_count>0){
+        printf("\033[1;31mAssembly failed.\033[0m\n");
+        printf("\033[1;31m number of errors: %d\033[0m\n",error_count);
+    }
+    else{
+        printf("\033[0;32mAssembly completed.\033[0m\n");
+    }
+
+    
     return 0;
 }
