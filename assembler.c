@@ -386,7 +386,7 @@ static void pass1(Assembler *as, char **raw_lines, int raw_count) {
     static int is_format2(const char *mnemonic) {
         const char *format2_list[] = {
             "CLEAR", "TIXR", "ADDR", "SUBR", "COMPR",
-            "MULR", "DIVR", "RMO", "SVC", "STPR"
+            "MULR", "DIVR", "RMO", "SVC", "STPR", "SHIFTL", "SHIFTR"
         };
         for (int i = 0; i < 10; i++) {
             if (strcmp(mnemonic, format2_list[i]) == 0) {
@@ -533,7 +533,7 @@ static void pass2(Assembler *as) {
                     tmp_val &= 0xFFF; // keep lower 3 hex digits
                     sprintf(address, "%03X", tmp_val);
                 } else {
-                    fprintf(stderr, "Error: Undefined symbol '%s' at line %d\n", symbol, i+1);
+                    fprintf(stderr, "\033[1;31mError: Undefined symbol '%s' at line %d\033[0m\n", symbol, i+1);
                     strcpy(address, "000");
                 }
             }
